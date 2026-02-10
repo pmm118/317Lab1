@@ -215,3 +215,13 @@ module tb_pipelined;
 
 endmodule
 
+//  y <= (a * b) + (c * d) + e;
+module MathEquation (
+    input  wire a, b, c, d, e
+    output wire out
+);
+    // Golden approach: Use continuous assignment (assign)
+    // synthesizes directly to gates (AND, XOR, OR)
+    assign out = (a & b) | (c ^ d) | e; 
+endmodule
+
