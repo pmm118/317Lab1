@@ -1,98 +1,94 @@
-// Pipelined
-    module pipelined (
-    input wire clk,
-    input wire rst,
+`timescale 1ns / 1ps
+module pipelined(
+    input  wire              clk,
+    input  wire              rst,
 
-    input wire  in_valid,
-    output wire in_ready,
+    input  wire              in_valid,
+    output wire              in_ready,
 
-    input wire signed [15:0] a,
-    input wire signed [15:0] b,
-    input wire signed [15:0] c,
-    input wire signed [15:0] d,
-    input wire signed [15:0] e,
+    input  wire signed [15:0] a,
+    input  wire signed [15:0] b,
+    input  wire signed [15:0] c,
+    input  wire signed [15:0] d,
+    input  wire signed [15:0] e,
 
-    output reg out_valid,
-    input wire  out_ready,
-    output reg signed [31:0] y
+    output reg               out_valid,
+    input  wire              out_ready,
+    output reg signed [31:0]  y
 );
 
-    assign in_ready = (~out_valid) || (out_valid && out_ready); // handshake
+    // --------------------------
+    // Ready chain 
+    // --------------------------
+    wire s3_ready_in;
+    wire s2_ready_in;
+    wire s1_ready_in;
 
-    // stage 1: p1 = a x b and p2 = c x d
-    // stage 2: s = p1 + p2
-    // stage 3: y = s + e
+    assign s3_ready_in = (~out_valid) || (out_valid && out_ready);
+    assign s2_ready_in = (~s2_valid)  || (s2_valid  && s3_ready_in);
+    assign s1_ready_in = (~s1_valid)  || (s1_valid  && s2_ready_in);
 
-    // Pipeline registers for three stages
-    reg signed [31:0] p1_s1; // stage1 outputs
-    reg signed [31:0] p2_s1;
-    reg signed [31:0] s_s2;  // stage2 output
-    reg signed [31:0] e_s1;  // pass-through for e
-    reg signed [31:0] e_s2;
-    reg signed [31:0] y_s3;  // final result register
+    assign in_ready = s1_ready_in;
+    wire in_send = in_valid && in_ready;
 
-    // Valid signals for each pipeline stage
-    reg v_s1, v_s2, v_s3;
-
-    // Keep the same simple input-ready policy but rely on v_s3 for out_valid
-    assign in_ready = (~out_valid) || (out_valid && out_ready);
+    // ==========================================
+    // STAGE 1: p1 = a*b, p2 = c*d, set e
+    // ==========================================
+    reg signed [31:0] s1_p1;
+    reg signed [31:0] s1_p2;
+    reg signed [15:0] s1_e;
+    reg               s1_valid;
 
     always @(posedge clk) begin
         if (rst) begin
-            // clear registers
-            p1_s1 <= 32'sd0;
-            p2_s1 <= 32'sd0;
-            s_s2  <= 32'sd0;
-            e_s1  <= 32'sd0;
-            e_s2  <= 32'sd0;
-            y_s3  <= 32'sd0;
-            v_s1  <= 1'b0;
-            v_s2  <= 1'b0;
-            v_s3  <= 1'b0;
-            out_valid <= 1'b0;
-            y <= 32'sd0;
-        end else begin
-            // Stage 1: capture multiplies when input is accepted
-            if (in_ready) begin
-                v_s1 <= in_valid;
-                if (in_valid) begin
-                    p1_s1 <= a * b;
-                    p2_s1 <= c * d;
-                    e_s1  <= e;
-                end
-            end else begin
-                v_s1 <= 1'b0;
+            s1_valid <= 1'b0;
+            s1_p1    <= 32'sd0;
+            s1_p2    <= 32'sd0;
+            s1_e     <= 16'sd0;
+        end else if (s1_ready_in) begin
+            s1_valid <= in_send;
+            if (in_send) begin
+                s1_p1 <= $signed(a) * $signed(b);
+                s1_p2 <= $signed(c) * $signed(d);
+                s1_e  <= e;
             end
-
-            // Stage 2: compute sum of products and pass e forward
-            v_s2 <= v_s1;
-            s_s2 <= p1_s1 + p2_s1;
-            e_s2 <= e_s1;
-
-            // Stage 3: final accumulation
-            v_s3 <= v_s2;
-            y_s3 <= s_s2 + e_s2;
-
-            // Output registers reflect stage 3
-            out_valid <= v_s3;
-            y <= y_s3;
         end
     end
 
-    // always @(posedge clk) begin
-    //     p1 <= a * b;
-    // end
+    // ==========================================
+    // STAGE 2: s = p1 + p2, pass e
+    // ==========================================
+    reg signed [31:0] s2_s;
+    reg signed [15:0] s2_e;
+    reg               s2_valid;
 
-    // always @(posedge clk) begin
-    //     p2 <= c * d;
-    // end
+    always @(posedge clk) begin
+        if (rst) begin
+            s2_valid <= 1'b0;
+            s2_s     <= 32'sd0;
+            s2_e     <= 16'sd0;
+        end else if (s2_ready_in) begin
+            s2_valid <= s1_valid;
+            if (s1_valid) begin
+                s2_s <= s1_p1 + s1_p2;
+                s2_e <= s1_e;
+            end
+        end
+    end
 
-    // always @(posedge clk) begin
-    //     s <= p1 + p2;
-    // end
-
-    // always @(posedge clk) begin
-    //     y <= s + e;
-    // end
+    // ==========================================
+    // STAGE 3: y = s + e (output stage)
+    // ==========================================
+    always @(posedge clk) begin
+        if (rst) begin
+            out_valid <= 1'b0;
+            y         <= 32'sd0;
+        end else if (s3_ready_in) begin
+            out_valid <= s2_valid;
+            if (s2_valid) begin
+                y <= s2_s + $signed(s2_e);
+            end
+        end
+    end
 
 endmodule
