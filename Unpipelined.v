@@ -1,4 +1,3 @@
-// Unpipelined
 module unpipelined (
     input wire clk,
     input wire rst,
@@ -33,3 +32,4 @@ module unpipelined (
     end
     
  endmodule
+
