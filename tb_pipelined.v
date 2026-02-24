@@ -15,7 +15,7 @@ module tb_pipelined;
     wire tb_out_valid;
     reg tb_out_ready;
 
-    // --- NEW: Variables for Self-Checking --
+    // --- ariables for Self-Checking --
     integer errors = 0;
     reg signed [31:0] expected_q [0:`NUM_VECTORS-1];
     integer in_idx = 0;
@@ -83,8 +83,8 @@ module tb_pipelined;
             tb_d = $random(seed2);
             tb_e = $random(seed2);
 
-            // --- NEW: Calculate Expected Result Immediately ---
-            // We do the math here in the testbench to verify the DUT later
+            // --- Calculate Expected Result Immediately ---
+        
             expected_q[in_idx] = ($signed(tb_a) * $signed(tb_b))  + ($signed(tb_c) * $signed(tb_d)) + $signed(tb_e);
             in_idx = in_idx +1;
             
@@ -98,7 +98,7 @@ module tb_pipelined;
         
         while(out_idx < `NUM_VECTORS) @(posedge tb_clk);
 
-        // --- NEW: Final Report ---
+        // ---Final Report ---
         if (errors == 0)
             $display("SUCCESS: All %0d pipelined tests passed!", `NUM_VECTORS);
         else
