@@ -15,7 +15,7 @@ module tb_pipelined;
     wire tb_out_valid;
     reg tb_out_ready;
 
-    // --- NEW: Variables for Self-Checking --
+    // --- Variables for Self-Checking --
     integer errors = 0;
     reg signed [31:0] expected_q [0:`NUM_VECTORS-1];
     integer in_idx = 0;
